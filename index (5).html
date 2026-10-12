@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Mobile Mensa-Vorbestellung mit Menüfilter, Allergiehinweisen und Preisberechnung.">
+  <title>Mensa Vorbestellung</title>
+  <style>
+    :root{--red:#b5121b;--red2:#8f0e15;--light:#fff5f5;--white:#fff;--text:#252525;--muted:#686868;--border:#ead7d7;--green:#18794e;--shadow:0 8px 24px rgba(90,0,0,.10)}
+    *{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--text);background:#f7f4f4;line-height:1.45}
+    header{background:linear-gradient(135deg,var(--red),var(--red2));color:white;padding:28px 18px 42px}
+    header .wrap{max-width:1050px;margin:auto} h1{margin:0 0 6px;font-size:clamp(1.8rem,6vw,3rem)} header p{margin:0;opacity:.92}
+    main{max-width:1050px;margin:-24px auto 40px;padding:0 14px}.grid{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(280px,.8fr);gap:18px}
+    .card{background:var(--white);border:1px solid var(--border);border-radius:18px;padding:20px;box-shadow:var(--shadow);margin-bottom:18px}.card h2{margin:0 0 16px;font-size:1.2rem;color:var(--red2)}
+    .fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.full{grid-column:1/-1} label,legend{font-weight:700;font-size:.94rem} input,select,textarea{width:100%;margin-top:6px;padding:12px;border:1px solid #cfc3c3;border-radius:10px;font:inherit;background:white} input:focus,select:focus,textarea:focus{outline:3px solid rgba(181,18,27,.18);border-color:var(--red)}
+    fieldset{border:0;padding:0;margin:0}.radio-row{display:flex;flex-wrap:wrap;gap:9px;margin-top:8px}.choice{display:flex;align-items:center;gap:7px;padding:10px 12px;border:1px solid var(--border);border-radius:999px;background:var(--light);cursor:pointer}.choice input{width:auto;margin:0;accent-color:var(--red)}
+    .notice{padding:12px;border-left:4px solid var(--red);background:var(--light);border-radius:8px;font-size:.9rem}.error{display:none;color:#a40000;font-weight:700;margin-top:12px}.summary{position:sticky;top:14px}.line{display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px dashed #ddd}.total{font-size:1.35rem;font-weight:800;color:var(--red2);border:0}.pill{display:inline-block;background:#e8f6ef;color:var(--green);font-weight:800;padding:5px 9px;border-radius:999px;font-size:.78rem}
+    button{width:100%;border:0;border-radius:12px;padding:14px 16px;font:inherit;font-weight:800;cursor:pointer;background:var(--red);color:#fff;margin-top:14px}button:hover{background:var(--red2)}button:focus{outline:3px solid rgba(181,18,27,.28)}.secondary{background:#eee;color:#333}.secondary:hover{background:#ddd}
+    dialog{border:0;border-radius:18px;padding:0;max-width:500px;width:calc(100% - 28px);box-shadow:0 20px 70px rgba(0,0,0,.3)}dialog::backdrop{background:rgba(0,0,0,.55)}.dialog-body{padding:24px}.ok{font-size:2rem;margin:0}.small{color:var(--muted);font-size:.85rem}footer{text-align:center;color:#777;padding:0 16px 28px;font-size:.82rem}
+    @media(max-width:760px){.grid{grid-template-columns:1fr}.summary{position:static}.fields{grid-template-columns:1fr}.full{grid-column:auto}.card{padding:16px}header{padding-top:22px}}
+  </style>
+</head>
+<body>
+<header><div class="wrap"><h1>🍽️ Mensa Vorbestellung</h1><p>Menü auswählen, Preis prüfen und Bestellung absenden.</p></div></header>
+<main>
+<form id="orderForm" novalidate>
+<div class="grid">
+<section>
+  <div class="card"><h2>1. Persönliche Angaben</h2><div class="fields">
+    <label>Vorname *<input id="firstName" name="firstName" autocomplete="given-name" required></label>
+    <label>Nachname *<input id="lastName" name="lastName" autocomplete="family-name" required></label>
+    <label>Wochentag *<select id="weekday" required><option value="">Bitte wählen</option><option>Montag</option><option>Dienstag</option><option>Mittwoch</option><option>Donnerstag</option><option>Freitag</option></select></label>
+    <label>Tischnummer *<select id="tableNo" required><option value="">Erst Wochentag wählen</option></select></label>
+  </div><p id="loadInfo" class="small"></p></div>
+
+  <div class="card"><h2>2. Ernährungsweise</h2><fieldset><legend>Vorauswahl *</legend><div class="radio-row">
+    <label class="choice"><input type="radio" name="diet" value="all" checked> Alles</label>
+    <label class="choice"><input type="radio" name="diet" value="vegetarian"> Vegetarisch</label>
+    <label class="choice"><input type="radio" name="diet" value="vegan"> Vegan</label>
+  </div></fieldset><p id="dietInfo" class="small">Alle Gerichte werden angezeigt.</p></div>
+
+  <div class="card"><h2>3. Menü zusammenstellen</h2><div class="fields">
+    <label>Vorspeise<select id="starter" data-category="starter"></select></label>
+    <label>Hauptspeise *<select id="mainDish" data-category="main" required></select></label>
+    <label>Schärfe<select id="spice"><option value="">Nicht relevant</option><option>Mild</option><option>Scharf</option></select></label>
+    <label>Beilage<select id="side" data-category="side"></select></label>
+    <label>Nachspeise<select id="dessert" data-category="dessert"></select></label>
+    <label>Getränk<select id="drink" data-category="drink"></select></label>
+    <label class="full">Allergien / Unverträglichkeiten<textarea id="allergy" rows="3" placeholder="z. B. Gluten, Laktose, Nüsse"></textarea></label>
+    <div class="full notice"><strong>Wichtig:</strong> Trotz Angabe einer Allergie kann die Anwendung keine Kreuzkontamination ausschließen. Bitte im Zweifel das Mensapersonal ansprechen.</div>
+  </div><p id="formError" class="error">Bitte fülle alle Pflichtfelder aus.</p></div>
+</section>
+
+<aside><div class="card summary"><span class="pill">Vorbestellung</span><h2 style="margin-top:10px">Deine Bestellung</h2><div id="summaryLines"></div><div class="line total"><span>Gesamt</span><span id="total">0,00 €</span></div><button type="submit">Kostenpflichtig vorbestellen</button><button type="button" class="secondary" id="resetBtn">Auswahl zurücksetzen</button><p class="small">Bezahlung bei Abholung. Beispielpreise, keine echte Zahlungsabwicklung.</p></div></aside>
+</div></form>
+</main>
+<footer>Uni-Projekt: Mensa-Vorbestellung · Preise und Verfügbarkeit sind beispielhaft.</footer>
+<dialog id="successDialog"><div class="dialog-body"><p class="ok">✅</p><h2>Bestellung vorgemerkt</h2><p id="confirmation"></p><p class="small">Deine Angaben wurden für die Auswertung gespeichert.</p><button type="button" id="closeDialog">Schließen</button></div></dialog>
+<script>
+const defaultMenu={
+ starter:[{name:'Keine Vorspeise',price:0,diet:'vegan'},{name:'Rinderkraftbrühe',price:1.80,diet:'meat'},{name:'Salat',price:2.20,diet:'vegan'}],
+ main:[{name:'Bitte wählen',price:0,diet:'vegan',placeholder:true},{name:'Hähnchencurry',price:6.90,diet:'meat'},{name:'Kässpatzen',price:5.90,diet:'vegetarian'},{name:'Nudeln mit Tomatensoße',price:5.20,diet:'vegan'},{name:'Schnitzel',price:7.20,diet:'meat'},{name:'Braten',price:7.50,diet:'meat'}],
+ side:[{name:'Keine Beilage',price:0,diet:'vegan'},{name:'Pommes',price:2.10,diet:'vegan'},{name:'Spätzle',price:2.30,diet:'vegetarian'}],
+ dessert:[{name:'Keine Nachspeise',price:0,diet:'vegan'},{name:'Pudding',price:1.70,diet:'vegetarian'},{name:'Tiramisu',price:2.50,diet:'vegetarian'}],
+ drink:[{name:'Kein Getränk',price:0,diet:'vegan'},{name:'Coca-Cola',price:2.20,diet:'vegan'},{name:'Spezi',price:2.20,diet:'vegan'},{name:'Wasser',price:1.60,diet:'vegan'},{name:'Fanta',price:2.20,diet:'vegan'},{name:'Sprite',price:2.20,diet:'vegan'},{name:'Eistee',price:2.20,diet:'vegan'}]
+};
+const ids={starter:'starter',main:'mainDish',side:'side',dessert:'dessert',drink:'drink'};
+const SCRIPT_URL="https://script.google.com/macros/s/AKfycbwOmR0WXeZpZMRgKyUsBy-wf_4KwHY6svs2_cgtScNN7QjY9qOqit3rzzZESD4bp9gB/exec";
+const basis={starter:{name:'Keine Vorspeise',price:0,diet:'vegan'},main:{name:'Bitte wählen',price:0,diet:'vegan',placeholder:true},side:{name:'Keine Beilage',price:0,diet:'vegan'},dessert:{name:'Keine Nachspeise',price:0,diet:'vegan'},drink:{name:'Kein Getränk',price:0,diet:'vegan'}};
+let alleGerichte=null;
+let tische={anzahl:10,max:4,belegt:{}};
+const euro=n=>n.toLocaleString('de-DE',{style:'currency',currency:'EUR'});
+function allowed(item,diet,day,main,cat){if(item.placeholder)return true;if(day==='Freitag'&&item.diet==='meat')return false;if(cat==='side'&&item.name.toLowerCase().includes('spätzle')&&String(main).toLowerCase().includes('kässpatzen'))return false;if(diet==='vegan')return item.diet==='vegan';if(diet==='vegetarian')return item.diet!=='meat';return true}
+function renderMenus(){const diet=document.querySelector('[name=diet]:checked').value,day=weekday.value;Object.entries(ids).forEach(([cat,id])=>{const el=document.getElementById(id),old=el.value;el.innerHTML='';menuFor(day)[cat].filter(x=>allowed(x,diet,day,mainDish.value,cat)).forEach(x=>{const o=document.createElement('option');o.value=x.name;o.textContent=`${x.name} · ${euro(x.price)}`;o.dataset.price=x.price;el.appendChild(o)});if([...el.options].some(o=>o.value===old))el.value=old});spice.disabled=mainDish.value!=='Hähnchencurry';if(spice.disabled)spice.value='';dietInfo.textContent=(!day&&alleGerichte)?'Bitte zuerst einen Wochentag wählen – dann erscheinen die Gerichte des Tages.':day==='Freitag'?'Freitag: Fleischgerichte sind automatisch ausgeschlossen.':diet==='vegan'?'Es werden nur vegane Gerichte angezeigt.':diet==='vegetarian'?'Fleischgerichte sind ausgeblendet.':'Alle Gerichte werden angezeigt.';renderTables();updateSummary()}
+function selected(id){const e=document.getElementById(id),o=e.options[e.selectedIndex];return o?{name:o.value,price:Number(o.dataset.price||0)}:{name:'–',price:0}}
+function updateSummary(){const items=[['Vorspeise',selected('starter')],['Hauptspeise',selected('mainDish')],['Beilage',selected('side')],['Nachspeise',selected('dessert')],['Getränk',selected('drink')]];let sum=0;summaryLines.innerHTML=items.map(([label,x])=>{sum+=x.price;return `<div class="line"><span>${label}<br><strong>${x.name}</strong></span><span>${euro(x.price)}</span></div>`}).join('');total.textContent=euro(sum);spice.disabled=mainDish.value!=='Hähnchencurry';if(spice.disabled)spice.value=''}
+document.querySelectorAll('select,input[name=diet]').forEach(e=>e.addEventListener('change',e=>['weekday','mainDish'].includes(e.target.id)||e.target.name==='diet'?renderMenus():updateSummary()));
+orderForm.addEventListener('submit',async e=>{e.preventDefault();if(!orderForm.checkValidity()||mainDish.value==='Bitte wählen'){formError.textContent='Bitte fülle alle Pflichtfelder aus.';formError.style.display='block';orderForm.reportValidity();return}formError.style.display='none';const btn=orderForm.querySelector('button[type=submit]');btn.disabled=true;const r=await sendeAnSheet();btn.disabled=false;if(!r.ok){formError.textContent=r.error==='tisch_voll'?'Dieser Tisch ist leider schon belegt. Bitte wähle einen anderen Tisch.':r.error==='netzwerk'?'Keine Verbindung zum Server. Bitte versuche es erneut.':'Die Bestellung konnte nicht gespeichert werden. Bitte versuche es erneut.';formError.style.display='block';if(r.error==='tisch_voll')await ladeDaten();return}confirmation.textContent=`${firstName.value} ${lastName.value}, deine Auswahl für ${weekday.value} (Tisch ${tableNo.value}) über ${total.textContent} wurde vorgemerkt.`;const bel=tische.belegt;bel[weekday.value]=bel[weekday.value]||{};bel[weekday.value][tableNo.value]=(bel[weekday.value][tableNo.value]||0)+1;renderTables();successDialog.showModal()});
+resetBtn.addEventListener('click',()=>{orderForm.reset();renderMenus()});closeDialog.addEventListener('click',()=>successDialog.close());renderMenus();
+
+
+function menuFor(day){
+  if(!alleGerichte)return defaultMenu;
+  const m={};
+  Object.keys(ids).forEach(cat=>{m[cat]=[basis[cat],...alleGerichte.filter(g=>g.kat===cat&&(g.tag==='Alle'||g.tag===day))]});
+  return m;
+}
+function renderTables(){
+  const day=weekday.value,old=tableNo.value;
+  tableNo.innerHTML='';
+  if(!day){tableNo.innerHTML='<option value="">Erst Wochentag wählen</option>';tableNo.disabled=true;return}
+  tableNo.disabled=false;
+  const ph=document.createElement('option');ph.value='';ph.textContent='Bitte wählen';tableNo.appendChild(ph);
+  for(let n=1;n<=tische.anzahl;n++){
+    const used=(tische.belegt[day]||{})[n]||0,free=tische.max-used;
+    const o=document.createElement('option');o.value=n;o.disabled=free<=0;
+    o.textContent=free>0?`Tisch ${n} · ${free} von ${tische.max} Plätzen frei`:`Tisch ${n} · belegt`;
+    tableNo.appendChild(o);
+  }
+  if([...tableNo.options].some(o=>o.value===old&&!o.disabled))tableNo.value=old;
+}
+async function ladeDaten(){
+  const info=document.getElementById('loadInfo'),btn=orderForm.querySelector('button[type=submit]');
+  btn.disabled=true;info.textContent='Speiseplan und Tischbelegung werden geladen …';
+  const ctrl=new AbortController(),t=setTimeout(()=>ctrl.abort(),10000);
+  try{
+    const res=await fetch(SCRIPT_URL,{signal:ctrl.signal});
+    const d=await res.json();
+    if(!d.ok)throw new Error('serverfehler');
+    if(d.tische&&d.tische.belegt)tische=d.tische;
+    if(d.menu&&d.menu.length){alleGerichte=d.menu.map(g=>({kat:g.kat,tag:g.tag,name:g.name,price:g.preis,diet:g.diet}));info.textContent=''}
+    else info.textContent='Der Speiseplan ist leer – es wird der Standard-Speiseplan angezeigt.';
+  }catch(err){
+    info.textContent='Speiseplan konnte nicht geladen werden – es wird der Standard-Speiseplan angezeigt.';
+  }finally{clearTimeout(t);btn.disabled=false}
+  renderMenus();
+}
+async function sendeAnSheet(){
+  const daten={
+    vorname:firstName.value,
+    nachname:lastName.value,
+    wochentag:weekday.value,
+    ernaehrung:document.querySelector('[name=diet]:checked').value,
+    vorspeise:starter.value,
+    hauptspeise:mainDish.value,
+    schaerfe:spice.value,
+    beilage:side.value,
+    nachspeise:dessert.value,
+    getraenk:drink.value,
+    allergien:allergy.value,
+    gesamt:total.textContent,
+    tisch:tableNo.value
+  };
+  try{
+    const res=await fetch(SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(daten)});
+    return await res.json();
+  }catch(err){return {ok:false,error:'netzwerk'}}
+}
+ladeDaten();
+</script>
+</body>
+</html>
